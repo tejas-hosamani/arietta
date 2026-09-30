@@ -14,6 +14,18 @@ A fast, modern web interface for [aria2](https://github.com/aria2/aria2).
 
 Light and dark versions of every screenshot are in [`docs/screenshots`](docs/screenshots).
 
+## Download
+
+1. Start aria2 with RPC enabled:
+   ```sh
+   aria2c --enable-rpc --rpc-listen-all --rpc-allow-origin-all
+   ```
+2. Download [`arietta.html`](https://github.com/tejas-hosamani/arietta/releases/latest/download/arietta.html) and open it in your browser. It is a single self-contained file, no server or install needed.
+
+Arietta connects to `ws://localhost:6800/jsonrpc` by default. Change the server or add more under Preferences.
+
+To host it on a web server instead, use the `arietta-*-web.zip` from the [latest release](https://github.com/tejas-hosamani/arietta/releases/latest).
+
 ## Stack
 
 - Vite, React 19, TypeScript (strict)
