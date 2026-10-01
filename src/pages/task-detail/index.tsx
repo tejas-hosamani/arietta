@@ -1,49 +1,35 @@
 import { useState, type ReactNode } from 'react'
 import { Link, useLocation } from 'wouter'
-import { ArrowLeft, Check, Copy, Pause, Play, RotateCcw, Trash2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { ArrowLeft, Pause, Play, RotateCcw, Trash2 } from 'lucide-react'
 import { useRetry, useTask, useTaskActions } from '@/hooks/aria2'
+import type { Aria2Task } from '@/lib/aria2/types'
 import {
   canPause,
   canResume,
   canRetry,
   displayStatus,
   errorDescription,
-  eta,
   isBitTorrent,
   progress,
   taskKind,
   taskName,
 } from '@/lib/aria2/task'
-import { formatBytes, formatDate, formatDuration, formatPercent, bytesParts } from '@/lib/format'
+import { formatBytes, formatDate, formatPercent, bytesParts } from '@/lib/format'
 import { useRemoveTasks } from '@/components/confirm-remove'
 import { KindIcon } from '@/components/task-icon'
 import { StatusBadge } from '@/components/status-badge'
+import { TimeLeft } from '@/components/time-left'
+import { CopyValue } from '@/components/copy-value'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { FilesTab } from './files-tab'
 import { ConnectionsTab, OptionsTab, PeersTab, PieceMap, TrackersTab, Empty } from './panels'
 
-function CopyValue({ value, children }: { value: string; children?: ReactNode }) {
-  const [copied, setCopied] = useState(false)
-  return (
-    <button
-      className="group inline-flex max-w-full cursor-pointer items-center gap-1.5 text-left"
-      onClick={() =>
-        navigator.clipboard.writeText(value).then(
-          () => {
-            setCopied(true)
-            setTimeout(() => setCopied(false), 1200)
-          },
-          () => toast.error('Could not access clipboard'),
-        )
-      }
-    >
-      <span className="min-w-0 break-all">{children ?? value}</span>
-      {copied ? <Check className="size-3 shrink-0 text-ok" /> : <Copy className="size-3 shrink-0 text-fg-faint opacity-0 group-hover:opacity-100" />}
-    </button>
-  )
+/** The URI the download came from: the one in use, else the first listed. */
+function sourceUri(task: Aria2Task): string | undefined {
+  const uris = task.files.flatMap((f) => f.uris)
+  return (uris.find((u) => u.status === 'used') ?? uris[0])?.uri
 }
 
 function Stat({ label, value, unit, tone }: { label: string; value: ReactNode; unit?: string; tone?: string }) {
@@ -153,7 +139,7 @@ export function TaskDetailPage({ gid }: { gid: string }) {
             </div>
             <div className="tabular text-right text-sm text-fg-muted">
               {doneNum} <span className="text-fg-faint">{doneUnit}</span> of {sizeNum} <span className="text-fg-faint">{sizeUnit}</span>
-              {task.status === 'active' && ratio < 1 && <div className="mt-0.5 text-fg">{formatDuration(eta(task))} remaining</div>}
+              {task.status === 'active' && ratio < 1 && <div className="mt-0.5 text-fg"><TimeLeft gid={task.gid} suffix="remaining" /></div>}
             </div>
           </div>
           <Progress
@@ -187,6 +173,13 @@ export function TaskDetailPage({ gid }: { gid: string }) {
           <TabsContent value="overview">
             <dl className="divide-y divide-line">
               <InfoRow label="Name">{taskName(task)}</InfoRow>
+              {!bt && sourceUri(task) && (
+                <InfoRow label="Source">
+                  <span className="tabular text-[13px]">
+                    <CopyValue value={sourceUri(task)!} />
+                  </span>
+                </InfoRow>
+              )}
               <InfoRow label="Directory">
                 <span className="tabular text-[13px]">
                   <CopyValue value={task.dir} />

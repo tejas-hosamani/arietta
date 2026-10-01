@@ -41,6 +41,25 @@ function parseLinks(text: string) {
 
 const QUICK_KEYS = ['dir', 'out', 'split', 'max-download-limit']
 
+const isAbsolutePath = (p: string) => /^([/\\]|[A-Za-z]:[/\\])/.test(p)
+
+/**
+ * A bare folder name (or relative path) goes inside the default download directory. aria2 would resolve it
+ * against its own working directory, which is rarely what anyone means. aria2 creates missing folders itself.
+ */
+function resolveDir(input: string, base: string | undefined): string | undefined {
+  const dir = input.trim()
+  if (!dir) return undefined
+  if (isAbsolutePath(dir) || !base) return dir
+  const sep = base.includes('\\') && !base.includes('/') ? '\\' : '/'
+  return `${base.replace(/[/\\]+$/, '')}${sep}${dir}`
+}
+
+function batchFolderName(date = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `Batch ${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}-${pad(date.getMinutes())}`
+}
+
 export function NewTaskDialog() {
   const { newTaskOpen, newTaskSeed, closeNewTask } = useUi()
   const { client } = useAria2()
@@ -52,6 +71,9 @@ export function NewTaskDialog() {
   const [links, setLinks] = useState('')
   const [files, setFiles] = useState<File[]>([])
   const [options, setOptions] = useState<Record<string, string>>({})
+  /** What the user typed in "Save to", or null while untouched so batches can suggest a folder. */
+  const [dirInput, setDirInput] = useState<string | null>(null)
+  const [batchName, setBatchName] = useState('')
   const [paused, setPaused] = useState(false)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -62,6 +84,8 @@ export function NewTaskDialog() {
     setLinks(newTaskSeed?.links ?? '')
     setFiles(newTaskSeed?.files ?? [])
     setOptions({})
+    setDirInput(null)
+    setBatchName(batchFolderName())
     setPaused(false)
     setShowAdvanced(false)
   }, [newTaskOpen, newTaskSeed])
@@ -69,6 +93,9 @@ export function NewTaskDialog() {
   const parsed = useMemo(() => parseLinks(links), [links])
   const advancedKeys = useMemo(() => taskOptionKeys('new', true).filter((o) => !QUICK_KEYS.includes(o.key)), [])
   const total = parsed.length + files.length
+  const batch = total > 1
+  const dirValue = dirInput ?? (batch ? batchName : '')
+  const resolvedDir = resolveDir(dirValue, globalOptions?.dir)
 
   const setOption = (key: string, value: string) =>
     setOptions((prev) => {
@@ -83,6 +110,7 @@ export function NewTaskDialog() {
     setSubmitting(true)
     const opts: Record<string, string | string[]> = {}
     for (const [k, v] of Object.entries(options)) opts[k] = serializeOption(optionDef(k), v)
+    if (resolvedDir) opts.dir = resolvedDir
     if (paused) opts.pause = 'true'
     try {
       const calls = [
@@ -102,7 +130,7 @@ export function NewTaskDialog() {
         toast.success(ok === 1 ? 'Download added' : `${ok} downloads added`, {
           description: paused ? 'Added paused to the queue' : undefined,
         })
-        if (options.dir) pushDirHistory(options.dir)
+        if (resolvedDir) pushDirHistory(resolvedDir)
       }
       if (failed.length) toast.error(`${failed.length} failed to add`, { description: failed[0].message })
       queryClient.invalidateQueries({ queryKey: [client.profile.id] })
@@ -203,15 +231,22 @@ export function NewTaskDialog() {
 
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <label className="eyebrow mb-1.5 block" htmlFor="new-dir">Save to</label>
+              <label className="eyebrow mb-1.5 block" htmlFor="new-dir">{batch ? 'Save to folder' : 'Save to'}</label>
               <Input
                 id="new-dir"
                 list="new-dir-history"
-                value={options.dir ?? ''}
-                onChange={(e) => setOption('dir', e.target.value)}
+                value={dirValue}
+                onChange={(e) => setDirInput(e.target.value)}
                 placeholder={globalOptions?.dir ?? 'Default download directory'}
                 className="tabular text-[13px]"
               />
+              <p className="tabular mt-1.5 truncate text-xs text-fg-faint" title={resolvedDir}>
+                {resolvedDir && resolvedDir !== dirValue.trim()
+                  ? `Saves to ${resolvedDir}`
+                  : batch
+                    ? 'A folder name goes inside the default directory, or enter a full path.'
+                    : 'Leave empty for the default directory, enter a folder name, or a full path.'}
+              </p>
               <datalist id="new-dir-history">
                 {dirHistory.map((d) => (
                   <option key={d} value={d} />

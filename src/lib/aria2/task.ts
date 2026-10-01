@@ -65,12 +65,6 @@ export function progress(task: Pick<Aria2Task, 'completedLength' | 'totalLength'
   return Number(task.completedLength) / total
 }
 
-export function eta(task: Aria2Task): number | undefined {
-  const speed = Number(task.downloadSpeed)
-  if (!speed) return undefined
-  return (Number(task.totalLength) - Number(task.completedLength)) / speed
-}
-
 export function canPause(task: Aria2Task) {
   return task.status === 'active' || task.status === 'waiting'
 }

@@ -26,6 +26,19 @@ Arietta connects to `ws://localhost:6800/jsonrpc` by default. Change the server 
 
 To host it on a web server instead, use the `arietta-*-web.zip` from the [latest release](https://github.com/tejas-hosamani/arietta/releases/latest).
 
+### Updating
+
+Settings live in the browser, tied to the address Arietta is opened from. Put the new version in the same place and they carry over.
+
+- **Single file:** download the new [`arietta.html`](https://github.com/tejas-hosamani/arietta/releases/latest/download/arietta.html) and replace the old one.
+- **Web server:** download `arietta-<version>-web.zip` from the [latest release](https://github.com/tejas-hosamani/arietta/releases/latest), delete the old `assets/` folder in your web root (file names change between builds), then unzip over it:
+  ```sh
+  rm -rf /path/to/webroot/assets
+  unzip -o arietta-<version>-web.zip -d /path/to/webroot
+  ```
+
+Then hard-refresh the page (Ctrl+Shift+R, or Cmd+Shift+R on macOS). No restart of aria2 or the web server is needed.
+
 ## Stack
 
 - Vite, React 19, TypeScript (strict)
@@ -38,8 +51,9 @@ To host it on a web server instead, use the `arietta-*-web.zip` from the [latest
 - WebSocket (with push events) or HTTP POST/GET JSON-RPC, secret token, custom headers
 - Multiple aria2 servers, switchable from the sidebar
 - Task lists: downloading, queued, finished, all. Search, sort, multi-select (shift-click, Ctrl/Cmd+A), bulk pause/resume/remove, queue reordering, retry of failed HTTP/FTP tasks
-- Task detail: progress, speeds, file tree with BitTorrent file selection, piece map, peers with client detection, trackers, sources, per-task options
-- New download dialog: multiple links, mirrors, magnets, `.torrent` / `.metalink` files (picker or drop anywhere on the window), paste a link anywhere to start
+- Steady time-remaining countdown that ticks down every second instead of jumping with each speed sample
+- Task detail: progress, speeds, copyable source and directory, file tree with BitTorrent file selection, piece map, peers with client detection, trackers, sources, per-task options
+- New download dialog: multiple links, mirrors, magnets, `.torrent` / `.metalink` files (picker or drop anywhere on the window), paste a link anywhere to start. Batches go into their own folder; a bare folder name is created inside the default download directory
 - Full aria2 global options editor, grouped and searchable, with validation
 - Server status: version, features, session, save session, shut down
 - Light, dark and system themes, compact density, live speed sparkline, window title template, desktop notifications on completion or failure

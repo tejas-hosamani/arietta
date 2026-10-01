@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAria2 } from '@/lib/aria2/client-context'
 import { Aria2Error, type Aria2Client } from '@/lib/aria2/rpc'
+import { observeTasks } from '@/lib/aria2/countdown'
 import type {
   Aria2GlobalStat,
   Aria2Options,
@@ -65,6 +66,7 @@ async function fetchTasks(client: Aria2Client, filter: TaskFilter): Promise<Aria
     if (r instanceof Aria2Error) throw r
     tasks.push(...(r as Aria2Task[]))
   }
+  observeTasks(client.profile.id, tasks)
   return tasks
 }
 
@@ -83,7 +85,11 @@ export function useTask(gid: string) {
   const interval = useSettings((s) => s.refreshInterval)
   return useQuery({
     queryKey: [pid, 'task', gid],
-    queryFn: () => client.call<Aria2Task>('aria2.tellStatus', gid),
+    queryFn: async () => {
+      const task = await client.call<Aria2Task>('aria2.tellStatus', gid)
+      observeTasks(pid, [task])
+      return task
+    },
     ...poll(interval),
   })
 }

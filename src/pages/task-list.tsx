@@ -31,20 +31,22 @@ import {
   canRetry,
   displayStatus,
   errorDescription,
-  eta,
   isBitTorrent,
   isStopped,
   progress,
   taskKind,
   taskName,
 } from '@/lib/aria2/task'
-import { formatBytes, formatDuration, formatPercent, formatSpeed } from '@/lib/format'
+import { formatBytes, formatPercent, formatSpeed } from '@/lib/format'
+import { useAria2 } from '@/lib/aria2/client-context'
+import { remainingNow } from '@/lib/aria2/countdown'
 import { cn } from '@/lib/cn'
 import { useSettings, type SortKey } from '@/store/settings'
 import { useUi } from '@/store/ui'
 import { useRemoveTasks } from '@/components/confirm-remove'
 import { KindIcon } from '@/components/task-icon'
 import { StatusBadge } from '@/components/status-badge'
+import { TimeLeft } from '@/components/time-left'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -79,7 +81,7 @@ const sortLabels: Record<SortKey, string> = {
   uploadSpeed: 'Upload speed',
 }
 
-function sortTasks(tasks: Aria2Task[], key: SortKey, desc: boolean) {
+function sortTasks(tasks: Aria2Task[], key: SortKey, desc: boolean, scope: string) {
   if (key === 'default') return desc ? [...tasks].reverse() : tasks
   const value = (t: Aria2Task): number | string => {
     switch (key) {
@@ -90,7 +92,7 @@ function sortTasks(tasks: Aria2Task[], key: SortKey, desc: boolean) {
       case 'progress':
         return progress(t)
       case 'remaining':
-        return eta(t) ?? Number.POSITIVE_INFINITY
+        return remainingNow(scope, t.gid) ?? Number.POSITIVE_INFINITY
       case 'downloadSpeed':
         return Number(t.downloadSpeed)
       case 'uploadSpeed':
@@ -252,7 +254,7 @@ function TaskRow({
             {ratio < 1 && Number(task.totalLength) > 0 ? `${formatBytes(task.completedLength)} / ` : ''}
             {formatBytes(task.totalLength)}
           </span>
-          {active && !verifying && ratio < 1 && <span className="tabular">{formatDuration(eta(task))} left</span>}
+          {active && !verifying && ratio < 1 && <span className="tabular"><TimeLeft gid={task.gid} suffix="left" /></span>}
           {active && (
             <span className="tabular inline-flex items-center gap-1">
               <Users className="size-3" />
@@ -370,6 +372,7 @@ export function TaskListPage({ filter }: { filter: TaskFilter }) {
   const { data, isLoading, error: queryError, failureReason } = useTasks(filter)
   const error = queryError ?? (data ? null : failureReason)
   const { sort, density, set } = useSettings()
+  const { client } = useAria2()
   const { pause, resume, pauseAll, resumeAll, purge } = useTaskActions()
   const retry = useRetry()
   const removeTasks = useRemoveTasks()
@@ -385,8 +388,8 @@ export function TaskListPage({ filter }: { filter: TaskFilter }) {
   const tasks = useMemo(() => {
     const q = query.trim().toLowerCase()
     const filtered = (data ?? []).filter((t) => !q || taskName(t).toLowerCase().includes(q) || t.gid.includes(q))
-    return sortTasks(filtered, sort.key, sort.desc)
-  }, [data, query, sort])
+    return sortTasks(filtered, sort.key, sort.desc, client.profile.id)
+  }, [data, query, sort, client])
 
   // Drop selections for tasks that disappeared.
   useEffect(() => {
