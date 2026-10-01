@@ -60,7 +60,7 @@ Start aria2 with RPC enabled, for example:
 aria2c --enable-rpc --rpc-listen-all --rpc-allow-origin-all
 ```
 
-No aria2 handy? `npm run mock` starts a fake aria2 on port 6800 with sample downloads that progress, seed, and send WebSocket events.
+No aria2 handy? `npm run mock` starts a fake aria2 on port 6800 with sample downloads that progress, seed, and send WebSocket events. Add `-- --secret test` (or set `MOCK_SECRET=test`) to require an RPC secret like a real aria2 with `--rpc-secret`.
 
 ## Build
 

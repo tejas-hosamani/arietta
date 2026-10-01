@@ -67,7 +67,7 @@ function toBase64(value: string): string {
 
 /**
  * aria2 JSON-RPC client supporting HTTP (POST/GET) and WebSocket transports.
- * The secret token is injected automatically, including inside system.multicall.
+ * The secret token is injected automatically. system.* methods take none; multicall carries it inside each call.
  */
 export class Aria2Client {
   readonly profile: RpcProfile
@@ -121,7 +121,8 @@ export class Aria2Client {
 
   async call<T = unknown>(method: string, ...params: unknown[]): Promise<T> {
     this.closed = false
-    const fullParams = method.startsWith('system.') && method !== 'system.multicall' ? params : this.withToken(params)
+    // system.* methods take no token; multicall carries it inside each call instead.
+    const fullParams = method.startsWith('system.') ? params : this.withToken(params)
     const request = { jsonrpc: '2.0', id: nextId(), method, params: fullParams }
     return this.isWebSocket ? this.sendWs<T>(request) : this.sendHttp<T>(request)
   }

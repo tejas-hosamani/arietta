@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 // A fake aria2 JSON-RPC server for UI development and screenshots.
 // Serves HTTP and WebSocket on the same port, simulates progressing downloads and sends push events.
-// Usage: npm run mock [-- --port 6800]
+// Usage: npm run mock [-- --port 6800] [--secret SECRET]   (MOCK_SECRET env var also sets the secret)
 import { createServer } from 'node:http'
 import { readFileSync } from 'node:fs'
 import { WebSocketServer } from 'ws'
 
 const portArg = process.argv.indexOf('--port')
 const PORT = portArg > -1 ? Number(process.argv[portArg + 1]) : 6800
+const secretArg = process.argv.indexOf('--secret')
+const SECRET = secretArg > -1 ? process.argv[secretArg + 1] : process.env.MOCK_SECRET || ''
 const TICK_MS = 500
 const MB = 1024 * 1024
 const GB = 1024 * MB
@@ -500,7 +502,11 @@ const methods = {
   forceShutdown: () => 'OK',
 }
 
+// Mirrors real aria2: system.* methods take no token, aria2.* methods need `token:<secret>` first when a secret is set.
 function invoke(method, params = []) {
+  if (method.startsWith('system.') && params.length > 0 && !Array.isArray(params[0])) {
+    throw new RpcError(1, 'The parameter at 0 has wrong type.')
+  }
   if (method === 'system.multicall') {
     return params[0].map(({ methodName, params: p }) => {
       try {
@@ -514,7 +520,9 @@ function invoke(method, params = []) {
   const name = method.replace(/^aria2\./, '')
   const fn = methods[name]
   if (!fn) throw new RpcError(1, `No such method: ${method}`)
-  const args = typeof params[0] === 'string' && params[0].startsWith('token:') ? params.slice(1) : params
+  const hasToken = typeof params[0] === 'string' && params[0].startsWith('token:')
+  if (SECRET && params[0] !== `token:${SECRET}`) throw new RpcError(1, 'Unauthorized')
+  const args = hasToken ? params.slice(1) : params
   return fn(...args)
 }
 
@@ -583,4 +591,5 @@ wss.on('connection', (ws) => {
 
 server.listen(PORT, () => {
   console.log(`Mock aria2 RPC listening on ws://localhost:${PORT}/jsonrpc (HTTP on the same port)`)
+  if (SECRET) console.log(`RPC secret required: ${SECRET}`)
 })
